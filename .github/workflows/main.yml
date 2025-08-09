@@ -1,0 +1,73 @@
+name: Build APK (with Xray & tun2socks)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # ---------- Build Android/arm64 binaries ----------
+      - name: Set up Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+
+      - name: Build Xray-core for android/arm64
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p build/bin
+          git clone --depth=1 https://github.com/XTLS/Xray-core.git
+          cd Xray-core
+          export GOOS=android GOARCH=arm64 CGO_ENABLED=0
+          go build -trimpath -ldflags="-s -w" -o ../build/bin/xray ./main
+
+      - name: Build tun2socks for android/arm64
+        shell: bash
+        run: |
+          set -eux
+          git clone --depth=1 https://github.com/xjasonlyu/tun2socks.git
+          cd tun2socks
+          export GOOS=android GOARCH=arm64 CGO_ENABLED=0
+          go build -trimpath -ldflags="-s -w" -o ../build/bin/tun2socks ./cmd/tun2socks
+
+      - name: Place binaries into app assets
+        shell: bash
+        run: |
+          set -eux
+          mkdir -p app/src/main/assets/xray/arm64-v8a
+          mkdir -p app/src/main/assets/tun2socks/arm64-v8a
+          cp build/bin/xray app/src/main/assets/xray/arm64-v8a/xray
+          cp build/bin/tun2socks app/src/main/assets/tun2socks/arm64-v8a/tun2socks
+
+      # ---------- Build APK ----------
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make gradlew (if missing) & executable
+        shell: bash
+        run: |
+          if [ ! -f gradlew ]; then
+            gradle wrapper --gradle-version 8.7
+          fi
+          chmod +x ./gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew clean :app:assembleDebug --stacktrace
+
+      - name: Upload APK(s)
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
