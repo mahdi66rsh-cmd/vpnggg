@@ -1,76 +1,67 @@
-name: Android CI (APK + tun2socks)
+name: Build Android VPN App
 
 on:
   push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v3
         with:
-          distribution: temurin
-          java-version: 17
+          java-version: '17'
+          distribution: 'temurin'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v5
+      - name: Set up Go 1.22
+        uses: actions/setup-go@v4
         with:
-          go-version: '1.23.x'
+          go-version: '1.22'
 
-      # ============================
-      # Build tun2socks (android/arm64)
-      # ============================
-      - name: Build tun2socks for android/arm64
-        shell: bash
+      - name: Build Xray-core for android/arm64
         run: |
           set -eux
           mkdir -p build/bin
+          git clone --depth=1 https://github.com/XTLS/Xray-core.git
+          cd Xray-core
+          go build -trimpath -ldflags="-s -w" -o ../build/bin/xray ./main
+          cd ..
 
-          # سورس tun2socks
+      - name: Build tun2socks for android/arm64
+        run: |
+          set -eux
+          mkdir -p build/bin
           git clone --depth=1 https://github.com/xjasonlyu/tun2socks.git
           cd tun2socks
-
-          # خروجی برای اندروید/ARM64 و بدون CGO (باینری استاتیک)
           export GOOS=android GOARCH=arm64 CGO_ENABLED=0 GO111MODULE=on
-          # مسیر cmd/tun2socks در همین ریپو وجود داره
-          go build -trimpath -ldflags="-s -w" -o ../build/bin/tun2socks ./cmd/tun2socks
-
+          go build -trimpath -ldflags="-s -w" -o ../build/bin/tun2socks ./cmd/cli
           cd ..
 
       - name: Place binaries into app assets
-        shell: bash
         run: |
-          set -eux
-          # باینری را داخل assets قرار می‌دهیم تا داخل APK بسته‌بندی شود
-          mkdir -p app/src/main/assets/bin/arm64-v8a
-          cp build/bin/tun2socks app/src/main/assets/bin/arm64-v8a/tun2socks
-          # اختیار اجرا برای مرجع
-          chmod +x app/src/main/assets/bin/arm64-v8a/tun2socks
+          mkdir -p app/src/main/assets
+          cp build/bin/* app/src/main/assets/
 
-      # ============================
-      # Build Android APK
-      # ============================
       - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
+        run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew --no-daemon :app:assembleDebug
+        run: ./gradlew assembleDebug
 
+      # نمایش مسیر APK در لاگ
       - name: Show APK path(s)
-        run: ls -R app/build/outputs || true
+        run: find app/build/outputs/apk -type f -name "*.apk" -print
 
+      # آپلود APK برای دانلود آسان
       - name: Upload APK(s)
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: app-apks
+          path: |
+            app/build/outputs/apk/**/*.apk
