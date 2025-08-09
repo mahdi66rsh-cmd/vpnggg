@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <application
+        android:label="GOD OF VPN"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+        android:supportsRtl="true">
+
+        <!-- ورود -->
+        <activity android:name="com.godvpn.nativehello.LoginActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- خانه -->
+        <activity android:name="com.godvpn.nativehello.HomeActivity" android:exported="false"/>
+
+        <!-- دمو VPN داخلی -->
+        <activity android:name="com.godvpn.nativehello.MainActivity" android:exported="false"/>
+
+        <!-- صفحه V2Ray -->
+        <activity android:name="com.godvpn.nativehello.V2RayActivity" android:exported="false"/>
+
+        <!-- سرویس VPN دمو -->
+        <service
+            android:name="com.godvpn.nativehello.MyVpnService"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:exported="false">
+            <intent-filter><action android:name="android.net.VpnService"/></intent-filter>
+        </service>
+
+        <!-- سرویس V2Ray (Xray+TUN) -->
+        <service
+            android:name="com.godvpn.nativehello.XrayTunnelService"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:exported="false">
+            <intent-filter><action android:name="android.net.VpnService"/></intent-filter>
+        </service>
+
+    </application>
+</manifest>
